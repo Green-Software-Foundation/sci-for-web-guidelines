@@ -1,0 +1,69 @@
+/**
+ * Any CSS included here will be global. The classic template
+ * bundles Infima by default. Infima is a CSS framework designed to
+ * work well for content-centric websites.
+ *
+ * Color tokens and font below are taken directly from the Green Software
+ * Foundation's main site (Green-Software-Foundation/greensoftware.foundation,
+ * src/styles/global.css) so this project matches the parent foundation's
+ * actual brand rather than Docusaurus's default blue.
+ */
+
+@import url("https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&display=swap");
+
+:root {
+  /* GSF primary (deep teal) */
+  --ifm-color-primary: #006d69;
+  --ifm-color-primary-dark: #00524f;
+  --ifm-color-primary-darker: #003734;
+  --ifm-color-primary-darkest: #002c2a;
+  --ifm-color-primary-light: #80b6b4;
+  --ifm-color-primary-lighter: #bfdbd9;
+  --ifm-color-primary-lightest: #e5f0f0;
+
+  /* GSF accent (lime green) — used for underline accents and highlights */
+  --gsf-accent: #aecc53;
+  --gsf-accent-dark: #83993e;
+  --gsf-accent-lightest: #f7faee;
+
+  --ifm-font-family-base: "Nunito Sans", sans-serif;
+  --ifm-heading-font-weight: 800;
+  --ifm-code-font-size: 95%;
+
+  --ifm-footer-background-color: var(--ifm-color-primary-darker);
+  --ifm-footer-color: rgba(255, 255, 255, 0.6);
+  --ifm-footer-link-color: rgba(255, 255, 255, 0.6);
+  --ifm-footer-link-hover-color: var(--gsf-accent);
+  --ifm-footer-title-color: var(--gsf-accent);
+}
+
+[data-theme="dark"] {
+  --ifm-color-primary: #80b6b4;
+  --ifm-color-primary-dark: #66a5a2;
+  --ifm-color-primary-darker: #4d9491;
+  --ifm-color-primary-darkest: #33837f;
+  --ifm-color-primary-light: #99c4c2;
+  --ifm-color-primary-lighter: #bfdbd9;
+  --ifm-color-primary-lightest: #e5f0f0;
+
+  --ifm-footer-background-color: #001a19;
+}
+
+.footer__title {
+  position: relative;
+  padding-bottom: 0.5rem;
+}
+
+.footer__title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 24px;
+  background: var(--gsf-accent);
+}
+
+.footer__link-item {
+  font-size: 0.8rem;
+}
