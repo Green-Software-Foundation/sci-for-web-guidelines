@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520" font-family="Arial, Helvetica, sans-serif" role="img" aria-label="Decomposition tree: the SCI for Web score splits into operational emissions O and embodied emissions M, divided by the functional unit R. O splits into O_server, O_client and the optional O_network, drawn dashed. M splits into M_server, M_network and M_client.">
+  <title>SCI for Web formula decomposition tree</title>
+  <rect x="0" y="0" width="1200" height="520" fill="#ffffff"/>
+
+  <!-- connectors -->
+  <g stroke="#80b6b4" stroke-width="2" fill="none">
+    <path d="M600 110 V150 H290 V190"/>
+    <path d="M600 110 V150 H910 V190"/>
+    <path d="M290 260 V300 H110 V340"/>
+    <path d="M290 260 V340"/>
+    <path d="M910 260 V300 H730 V340"/>
+    <path d="M910 260 V340"/>
+    <path d="M910 260 V300 H1090 V340"/>
+  </g>
+  <path d="M290 300 H470 V340" stroke="#80b6b4" stroke-width="2" fill="none" stroke-dasharray="8 6"/>
+
+  <!-- root -->
+  <rect x="380" y="30" width="440" height="80" rx="10" fill="#006d69"/>
+  <text x="600" y="64" text-anchor="middle" font-size="22" font-weight="bold" fill="#ffffff">SCI for Web score</text>
+  <text x="600" y="92" text-anchor="middle" font-size="16" fill="#e5f0f0">(O + M) per R, in gCO2eq per functional unit</text>
+
+  <!-- O and M -->
+  <rect x="150" y="190" width="280" height="70" rx="10" fill="#e5f0f0" stroke="#006d69" stroke-width="2"/>
+  <text x="290" y="220" text-anchor="middle" font-size="20" font-weight="bold" fill="#003734">O: operational</text>
+  <text x="290" y="246" text-anchor="middle" font-size="14" fill="#003734">energy × location-based intensity</text>
+
+  <rect x="770" y="190" width="280" height="70" rx="10" fill="#f7faee" stroke="#83993e" stroke-width="2"/>
+  <text x="910" y="220" text-anchor="middle" font-size="20" font-weight="bold" fill="#3d4a1c">M: embodied</text>
+  <text x="910" y="246" text-anchor="middle" font-size="14" fill="#3d4a1c">TE × time-share × resource-share</text>
+
+  <!-- leaves: operational -->
+  <rect x="30" y="340" width="160" height="70" rx="8" fill="#ffffff" stroke="#006d69" stroke-width="2"/>
+  <text x="110" y="372" text-anchor="middle" font-size="18" font-weight="bold" fill="#003734">O_server</text>
+  <text x="110" y="395" text-anchor="middle" font-size="12" fill="#333333">servers, edge, CDN facility</text>
+
+  <rect x="210" y="340" width="160" height="70" rx="8" fill="#ffffff" stroke="#006d69" stroke-width="2"/>
+  <text x="290" y="372" text-anchor="middle" font-size="18" font-weight="bold" fill="#003734">O_client</text>
+  <text x="290" y="395" text-anchor="middle" font-size="12" fill="#333333">browser execution on devices</text>
+
+  <rect x="390" y="340" width="160" height="70" rx="8" fill="#ffffff" stroke="#006d69" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="470" y="372" text-anchor="middle" font-size="18" font-weight="bold" fill="#003734">O_network</text>
+  <text x="470" y="395" text-anchor="middle" font-size="12" fill="#333333">optional (Clause 7.3)</text>
+
+  <!-- leaves: embodied -->
+  <rect x="650" y="340" width="160" height="70" rx="8" fill="#ffffff" stroke="#83993e" stroke-width="2"/>
+  <text x="730" y="372" text-anchor="middle" font-size="18" font-weight="bold" fill="#3d4a1c">M_server</text>
+  <text x="730" y="395" text-anchor="middle" font-size="12" fill="#333333">server hardware</text>
+
+  <rect x="830" y="340" width="160" height="70" rx="8" fill="#ffffff" stroke="#83993e" stroke-width="2"/>
+  <text x="910" y="372" text-anchor="middle" font-size="18" font-weight="bold" fill="#3d4a1c">M_network</text>
+  <text x="910" y="395" text-anchor="middle" font-size="12" fill="#333333">network hardware</text>
+
+  <rect x="1010" y="340" width="160" height="70" rx="8" fill="#ffffff" stroke="#83993e" stroke-width="2"/>
+  <text x="1090" y="372" text-anchor="middle" font-size="18" font-weight="bold" fill="#3d4a1c">M_client</text>
+  <text x="1090" y="395" text-anchor="middle" font-size="12" fill="#333333">end-user devices</text>
+
+  <!-- legend -->
+  <line x1="60" y1="470" x2="110" y2="470" stroke="#006d69" stroke-width="2"/>
+  <text x="120" y="475" font-size="14" fill="#333333">always in the score</text>
+  <line x1="300" y1="470" x2="350" y2="470" stroke="#006d69" stroke-width="2" stroke-dasharray="8 6"/>
+  <text x="360" y="475" font-size="14" fill="#333333">optional: reported only in a second, clearly labelled score</text>
+  <text x="60" y="500" font-size="14" fill="#333333">Third-party services sit inside O_server, O_client or O_network, with first-party and third-party sub-totals.</text>
+</svg>

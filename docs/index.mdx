@@ -1,0 +1,146 @@
+---
+sidebar_position: 0
+title: Getting Started
+---
+
+<!--
+Grounded in: proposed spec Introduction; Clause 4 (Procedure); Clause 7.1 (General formula); Clause 10 (Core characteristics).
+Migrated from: original draft §1 (Introduction: comparison aims, market-pressure aim, tier narrative); §8.1 (General formula); §17 (Core characteristics).
+-->
+
+**In short:** SCI for Web measures the carbon emissions of a web
+application per unit of useful work it does for people, such as a
+completed purchase or an article read. It counts the servers that build
+each response, the devices that render it, the hardware that carries it
+across the internet, and the third-party services woven into the page.
+This site explains how to work that score out in practice. The SCI for Web
+Specification itself states the formal requirements.
+
+**This site is draft guidance.** It is a Standards Working Group (SSWG)
+work item within the Green Software Foundation and is not yet officially
+endorsed. Page structure, worked examples and data-source pointers should
+all be expected to change as the SSWG's work progresses.
+
+## What this site is
+
+This is the **SCI for Web Guidelines** site: a non-normative companion to
+the SCI for Web Specification, which extends the Software Carbon Intensity
+(SCI) specification,
+[ISO/IEC 21031:2024](https://www.iso.org/standard/86612.html), to web
+applications. It follows the relationship the GSF's
+[SWI Guidance](https://github.com/Green-Software-Foundation/SWI-guide) has
+to the Software Water Intensity specification: **the specification states
+the principle; the guidelines explain how to fulfil it.**
+
+The two documents are deliberately kept apart. Worked examples, tool lists,
+default values and data-source guidance need frequent revision as tools
+appear and data improves. Revising a normative specification is slow by
+design, so that material lives here, where it can change without a new
+version of the standard. Nothing on this site creates, relaxes or tightens
+a requirement. Where a page relies on one, it names the clause ("Clause 7.5
+requires…") so you can check the source.
+
+## Why measure web applications this way
+
+Web applications spread their computation across infrastructure that no
+single party controls: origin servers and edge nodes, the networks between
+them, third-party services and the phones and laptops on which browsers run
+the code. A measure that looks only at the data centre rewards moving work
+onto users' devices, which saves nothing. SCI for Web closes that gap by
+drawing one boundary around all of it.
+
+The original draft set out several aims for the method, and they explain
+much of its shape:
+
+- **Meaningful comparison** between implementations and architectures of
+  the same kind of application, so that teams can judge design choices.
+- **Genuine reductions, not displacement.** Moving work from a measured
+  component to an unmeasured one should never improve the score (Clause 10
+  makes this a core characteristic).
+- **Market pressure on suppliers.** Making third-party and hosting
+  emissions visible gives web teams a reason to ask suppliers to disclose
+  and reduce their impact.
+- **Better decisions in design, development and operation**, by showing
+  where emissions actually arise.
+
+Like the parent SCI, an SCI for Web score is a **rate, not a total**:
+emissions per functional unit. Lower is better. A score never reaches zero,
+but it can always improve, and it improves only when emissions are
+eliminated through more efficient code, more efficient infrastructure or
+lower-carbon electricity. Carbon offsets and renewable energy certificates
+do not reduce it.
+
+Teams also start from very different places. Some can only run a browser
+profiler on a handful of devices; others run continuous telemetry across
+their fleet. The original draft described this as a progression of
+**implementation tiers** (Entry, Standard and Advanced). The proposed
+specification does not use tiers, but they remain a useful way to plan how
+to improve data quality over time: see
+[Implementation Tiers and Data Quality](./DataQuality/index.md).
+
+## The formula, at a glance
+
+SCI for Web follows the parent SCI's shape, `(O + M) per R`, and splits
+each part by where the emissions arise:
+
+```
+SCI_Web = (O_server + O_client + M_server + M_network + M_client) / R
+```
+
+- `O_server`, `O_client`: operational emissions (energy × location-based
+  carbon intensity) of servers and of the end-user devices running the
+  application;
+- `M_server`, `M_network`, `M_client`: embodied emissions of server,
+  network and end-user hardware;
+- `R`: the functional unit, such as one completed transaction.
+
+Operational network emissions, `O_network`, are **optional**. Clause 7.1
+requires the score above always to be reported; where `O_network` is
+quantified, a second, clearly labelled score that adds it may be reported
+alongside. The [Formula Walkthrough](./FormulaWalkthrough.md) explains why.
+
+## The five steps
+
+Clause 4 sets out the procedure every assessment follows. These guidelines
+are organised around it:
+
+1. **Bound**: decide what is inside the software boundary
+   ([Scope](./Scope/index.md), [Third-Party Attribution](./ThirdParty/index.md)).
+2. **Scale**: choose the functional unit
+   ([Choosing a Functional Unit](./R/index.md)).
+3. **Define**: choose measurement or calculation for each component
+   ([Implementation Tiers and Data Quality](./DataQuality/index.md)).
+4. **Quantify**: calculate each component and sum them
+   ([Operational Emissions](./O/index.md), [Embodied Emissions](./M/index.md)).
+5. **Report**: disclose the score and how you reached it
+   ([Disclosure Template](./Disclosure/index.md)).
+
+## Where to go from here
+
+- **New to SCI for Web** → [Formula Walkthrough and Visual Reference](./FormulaWalkthrough.md)
+- **Want to see it applied** → [Worked Examples](./QuickGuide.md)
+- **Is my application in scope?** → [Scope and Application Types](./Scope/index.md)
+- **Who does what in my team?** → [Personas and Responsibilities](./Personas/index.md)
+- **Choosing tools and data** → [Carbon Intensity and Data Sources](./DataSources/index.md) and the [Tools Directory](./DataSources/Tools.md)
+- **Writing the report** → [Disclosure Template](./Disclosure/index.md)
+- **Looking for a term** → [Terminology and Language Guide](./Terminology/index.md)
+- **Where did a draft section go?** → [Where Did It Go? (Decoupling Map)](./Traceability.md)
+- **What is still undecided** → [Open Questions](./OpenQuestions.md)
+
+## Related projects
+
+- SCI for Web Specification: the normative document this site explains.
+  <!-- TODO(spec-url): link the published specification once it has a URL. -->
+- [ISO/IEC 21031:2024](https://www.iso.org/standard/86612.html): the
+  Software Carbon Intensity specification that SCI for Web extends.
+- [W3C Web Sustainability Guidelines](https://www.w3.org/TR/web-sustainability-guidelines/):
+  design and development practices that reduce the emissions this score
+  measures.
+- [SWI Guidance](https://github.com/Green-Software-Foundation/SWI-guide):
+  the structural precedent for this project.
+- [This site's repository](https://github.com/Green-Software-Foundation/sci-for-web-guidelines):
+  source, issues and contribution guidelines.
+
+---
+
+Please submit any comments you have [here](https://github.com/Green-Software-Foundation/sci-for-web-guidelines/issues/new?labels=Guidelines+Feedback&title=Feedback%3A+Getting+Started).
