@@ -11,7 +11,6 @@ const config = {
     "Explanatory guidance, worked examples and data-source references for implementers calculating an SCI for Web score. Companion to the SCI for Web Specification; not itself normative.",
   favicon: "img/favicon.svg",
 
-  // TODO(domain): confirm the production domain before the first deployment.
   url: "https://sci-for-web-guidelines.greensoftware.foundation/",
   baseUrl: "/",
 
