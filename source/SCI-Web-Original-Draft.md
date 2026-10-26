@@ -59,6 +59,41 @@ The determining factor is whether human users consume the service's value throug
 - Serverless and edge computing architectures  
 - Micro-frontend architectures
 
+### 2.4 Specification Structure and Conformance
+
+#### Normative vs. Informative Content
+
+This specification distinguishes between:
+
+**Normative sections** — Requirements for SCI for Web conformance, using RFC 2119 keywords (SHALL, SHOULD, MAY). Located in the main specification sections (§1–§16).
+
+**Informative sections** — Implementation guidance, examples, and provisional reference data. Located in appendices and sections explicitly labeled "Informative" or "Non-Normative."
+
+**Key distinctions**:
+
+| Aspect | Normative | Informative |
+| :---- | :---- | :---- |
+| Conformance | Required for SCI compliance | Guidance only, not required |
+| Language | SHALL, SHOULD, MAY | Recommends, suggests, may consider |
+| Content | Measurement methods, boundaries, disclosure requirements | Service classification tables, provisional coefficients, worked examples |
+| Updates | Versioned with specification | May be updated more frequently |
+
+**Implementation flexibility**: Where normative sections require specific actions (e.g., "service-class estimation SHALL use activity metrics appropriate to computational characteristics"), informative appendices provide guidance on implementation approaches (e.g., a service classification table with representative metrics).
+
+Organizations MAY deviate from informative guidance while maintaining conformance with normative requirements, provided deviations are disclosed.
+
+#### Tiered Conformance (Entry / Standard / Advanced)
+
+Where normative requirements specify tiered approaches:
+
+- **Entry tier**: Baseline requirements sufficient for initial SCI measurement  
+- **Standard tier**: Enhanced methods incorporating application-specific measurement  
+- **Advanced tier**: Refined approaches using detailed instrumentation
+
+All tiers meet conformance requirements. Tier selection is NOT a quality ranking but rather a match between implementation context and measurement feasibility.
+
+**Anti-gaming protection**: Entry-tier defaults are deliberately conservative (higher embodied emissions, broader allocation) to prevent gaming through strategic tier selection. Organizations with better measurement capabilities are incentivized to advance tiers for accuracy improvement.
+
 ## 3\. Normative References
 
 The following documents are referred to in the text in such a way that some or all of their content constitutes requirements of this document:
@@ -405,7 +440,27 @@ If servers are located in datacenters, energy measurements SHALL account for dat
 
 `E_server = E_compute * PUE`
 
+When measured PUE data is unavailable from the infrastructure provider, organizations SHALL apply a conservative default PUE value at the **75th percentile for the applicable provider category** from publicly available datasets:
+
+- Hyperscale cloud (AWS, Azure, GCP, and equivalent): documented 75th-percentile PUE from provider public sustainability reports or industry surveys
+- Colocation facilities: 75th-percentile PUE from industry benchmarking datasets (e.g., Uptime Institute Global Data Center Survey)
+- On-premise/enterprise datacenter: 75th-percentile PUE from applicable regional benchmarks
+
+Organizations claiming a PUE better than the category 75th-percentile default SHALL document the source of their superior data in the measurement profile. Use of category defaults SHALL be disclosed as a structural limitation in the core measurement profile (see §12.1). Using a PUE value lower than the category 75th-percentile without documented evidence is NOT permitted.
+
+*Rationale*: Conservative PUE defaults prevent gaming through strategic tier downgrading. An organization with access to genuine Tier 2 data is protected from being disadvantaged because the "documented better-than-default exception" allows use of verified superior data without requiring full Tier 3 instrumentation.
+
 For multi-tenant infrastructure (shared hosting, cloud computing), energy SHALL be attributed based on resource allocation (vCPUs, memory, storage) proportional to total capacity.
+
+**Cost-based allocation is explicitly prohibited as a primary allocation method.** Cloud or hosting costs change independently of actual resource consumption and carbon footprint (through pricing changes, commitments, spot markets, etc.), making cost a structurally invalid proxy for energy attribution. Cost-based allocation MAY serve only as a disclosed fallback of last resort when resource-based allocation is structurally impossible (e.g., when only cost data is accessible and no resource metrics are available). Organizations using cost-based fallback allocation MUST disclose this limitation explicitly in the core measurement profile and SHOULD document why resource-based alternatives were not accessible.
+
+This prohibition applies to **operational energy attribution** (allocating shared infrastructure energy to a specific tenant or workload). Cost-based allocation MAY still be used for:
+
+- **M\_server** embodied emissions allocation when only billing data is available and no resource metrics (vCPU, memory GB) are accessible (disclosed as limitation)
+- **Financial reporting** of carbon costs (outside the scope of SCI for Web scoring)
+- **Internal prioritization** of optimization work (not directly affecting reported SCI score)
+
+The distinction: operational energy (O\_server) varies with actual utilization and SHALL be attributed by resource share; embodied emissions (M\_server) are amortized over hardware lifespan and MAY fall back to cost-based attribution when resource data is unavailable, with explicit disclosure per §12.1.
 
 For geographically distributed server infrastructure:
 
@@ -438,6 +493,27 @@ Organizations SHALL use the most direct method available and SHALL NOT use bytes
 
 **Preferred — Direct Measurement**: Where instrumentation is available (e.g., ISP or CDN partner supplying measured energy data for the traffic attributable to the application), direct measurement SHALL be used.
 
+**Time-Based Power Modelling — Recommended Non-Bytes Approach**: When direct ISP- or CDN-supplied energy measurement is unavailable, organizations SHOULD calculate `E_network` using time-based power models rather than data-transfer (kWh/GB) proxies. Empirical evidence indicates that network infrastructure energy consumption correlates with active transmission time rather than bytes transferred, as modern network efficiency improvements have partially decoupled energy from throughput at typical web-scale traffic volumes.
+
+The time-based calculation is:
+
+`E_network = SUM(duration_segment_i * P_segment_i)` (summed across network segments)
+
+Where `duration_segment_i` is the active transfer duration for segment i (access network, backbone, datacenter egress) and `P_segment_i` is the average active-state power per connection for that segment drawn from peer-reviewed time-proportional models (e.g., ITU-T L.1310, published networking research).
+
+Transfer duration SHOULD be tracked directly using one or more of the following:
+
+- Client-side Resource Timing API (`performance.getEntriesByType('resource')`)
+- Server-side response time logs
+- CDN analytics showing actual delivery times
+- Synthetic monitoring with representative network conditions
+
+When direct duration tracking is unavailable, duration MAY be estimated as `bytes_transferred ÷ representative_link_capacity` with documented assumptions about representative link capacity. Transfer volume serves as a secondary sense-check: exceptionally large transfers SHOULD correlate with longer durations given network capacity constraints.
+
+Network providers commonly publish "watts per active user" or "watts per active connection" metrics that MAY inform segment-specific power coefficients. Organizations using such coefficients SHALL disclose the source, version, and date of the coefficient values.
+
+The SWD Model v4 is NOT RECOMMENDED as the primary methodology for `E_network` due to its data-transfer basis. It MAY be used only as a Fallback with full disclosure per the Fallback requirements below.
+
 **Acceptable — Hybrid Model**: A calculation combining measured or vendor-disclosed network segment data (e.g., last-mile operator energy reports) with modelled remainder. Organizations using this approach SHALL disclose which segments are measured versus modelled, and the rationale for any modelling coefficients.
 
 **Fallback — Data-Transfer Estimation**: Bytes-transferred proxies (e.g., SWDM, CO2.js coefficients) MAY be used only when no measurement or hybrid approach is available. Organizations using this fallback SHALL disclose: (a) the model and coefficients used, (b) that bytes-transferred is an acknowledged-weak proxy for network energy, (c) why more direct methods were not available, and (d) that the reported O\_network value carries high methodological uncertainty.
@@ -445,20 +521,6 @@ Organizations SHALL use the most direct method available and SHALL NOT use bytes
 **Data transfer measurement** (when used) SHALL include all bytes transferred between server infrastructure and end-user devices, including HTML, CSS, JavaScript, images, videos, fonts, API responses and request bodies, WebSocket and real-time protocols, and HTTP headers and protocol overhead. Data SHALL be measured at the application layer after compression.
 
 **Gaming guard**: Organizations using bytes-transferred fallback methods SHOULD NOT report reductions in O\_network as the primary narrative for efficiency improvements, because bytes-reduction can occur without corresponding network energy reduction (e.g., edge caching shifts energy rather than eliminating it). This aligns with the parent SCI specification's principle that SCI reductions must reflect actual emission reductions, not accounting shifts.
-
-**Preventing Double-Counting with CDN and Edge Services**:
-
-The boundary between O\_server and O\_network occurs at datacenter facility egress. CDN and edge services energy is attributed based on measurement regime, not service type:
-
-1. If measured as facility energy (edge datacenter with PUE, metered infrastructure): include in O\_server  
-2. If measured as transmission energy (traffic-based, SWDM-style allocation): include in O\_network  
-3. If bundled by provider without clear separation: organizations MUST disclose which component received the allocation and why
-
-When a provider supplies bundled energy figures, practitioners MUST document which SCI components received portions of the bundled figure, what allocation rationale was used, and what assumptions about measurement regime justified the split.
-
-**Connection-Type Weighting**: Mobile radio access networks consume roughly an order of magnitude more energy per bit than fiber connections. SWDM default coefficients provide blended averages. Entry Tier organizations may use default SWDM coefficients. Standard and Advanced Tier organizations SHOULD apply connection-type weighting when user traffic distribution is known. Connection-type weighting is encouraged but not mandatory; disclosure of whether weighting was applied is mandatory.
-
-**SWDM Double-Counting Rule**: When using SWDM, use ONLY the network segment for O\_network. Discard SWDM's datacenter and device allocations, replacing them with direct measurement for O\_server and O\_client. SWDM allocates a single system energy total across three segments; taking network from SWDM and server/client from direct measurement avoids summing overlapping allocations. Organizations using SWDM for O\_network MUST disclose the SWDM version and coefficients used, whether connection-type weighting was applied, how edge facility energy was handled, and known limitations.
 
 **Preventing Double-Counting with CDN and Edge Services**:
 
@@ -494,13 +556,101 @@ Where:
 - User interaction processing  
 - Service Worker execution
 
-Organizations SHALL measure client-side energy using one of the following approaches (aligned with implementation tiers):
+#### 8.4.1 Measurement Observability
 
-**Tier 1 \-- Reference Device Testing**: Measure energy consumption on reference devices representing the user base using browser profiling tools. Report device types and models used.
+Client-side energy (O\_client) sits in a **proxy-based measurement domain**: browser security models intentionally restrict hardware power telemetry from page-level JavaScript, to prevent side-channel attacks and device fingerprinting. Organizations therefore infer O\_client from observable proxy signals — CPU/GPU time, memory allocation, and rendering and network-transfer timing via the browser Performance API — combined with power models, rather than through the direct instrumentation feasible for O\_server (§8.2).
 
-**Tier 2 \-- Device Mix Weighted Average**: Measure energy across multiple device categories (desktop, laptop, tablet, mobile), weighted by actual device distribution from analytics data.
+This reflects current browser security architecture, not a permanent limitation. Partial or experimental energy signals may emerge in specific environments (OS-level APIs, browser developer tools, specialized hardware), and organizations SHOULD monitor the W3C Web Performance Working Group and browser vendor sustainability initiatives for developments. Requirements for O\_client are structured around model transparency, documented assumptions, and explicit uncertainty disclosure (§8.4.7) rather than direct measurement.
 
-**Tier 3 \-- Real User Monitoring**: Instrument browsers to collect energy consumption telemetry from actual users. Privacy-preserving sampling and anonymization required.
+#### 8.4.2 Client-Side Energy Estimation Tiers
+
+Client-side energy estimation SHALL follow one of three tiers, aligned with the Implementation Tiers of §9. Organizations select a tier per device class based on technical capability and available resources; higher tiers provide greater precision but are not required for conformance. An Entry tier implementation using appropriate default models with clear functional-unit boundaries and honest uncertainty disclosure is preferred over a poorly executed Advanced tier with undocumented assumptions.
+
+**Entry Tier — Default Reference Models**. Organizations SHALL:
+
+1. Identify the device class(es) relevant to the functional unit, using the categories in §16  
+2. Use a published default power model maintained by a recognized organization (Green Software Foundation, W3C Web Performance Working Group, or peer-reviewed research) for each relevant device class  
+3. Execute the functional unit on any available device and collect resource-utilization data (CPU time, memory, rendering time, network-transfer timing) via the browser Performance API  
+4. Apply the default power model to the collected utilization data  
+5. Disclose the device class(es) used, the source of the default power model, the test device (if different from the reference device), and the model's published uncertainty range
+
+Entry tier requires no dedicated test-device fleet or power-measurement equipment — organizations apply models created and validated by specialists rather than creating their own.
+
+**Standard Tier — Device-Mix Weighting**. Organizations SHALL:
+
+1. Analyze actual user-device distribution from web analytics data (minimum 90 days)  
+2. Identify device classes representing at least 5% of user traffic  
+3. For each significant device class, apply either a default reference model (Entry tier) or a custom power model (measurement, manufacturer specification, or published research)  
+4. Weight results by actual device-class distribution  
+5. Update device-mix weighting at least annually, or when distribution shifts by 10% or more  
+6. Disclose device-class definitions, distribution data and source, the power model used per class, and the uncertainty range
+
+**Advanced Tier — Validated Custom Models**. Organizations SHALL:
+
+1. Implement Standard tier methodology as baseline  
+2. Create custom power models through direct measurement (hardware power monitors, OS-level profiling tools such as Firefox Profiler, Windows Energy Meter Interface, or Linux RAPL/perf, or controlled lab testing)  
+3. Validate custom models against at least 3 physical devices per device class, real usage patterns from aggregate RUM data where available, and published research benchmarks  
+4. Also report results using the nearest default reference model from the same device class, to preserve comparability  
+5. Disclose model-creation methodology, validation results, the comparison against the default reference model, and validation-based uncertainty
+
+Organizations MAY use different tiers for different device classes, provided each assignment is disclosed and justified.
+
+#### 8.4.3 Power Models and Conversion Methodology
+
+For Entry and Standard tier use of default reference devices, organizations SHALL use published power models from a recognized source: Green Software Foundation reference models, W3C Web Performance Working Group models, peer-reviewed academic power-profiling research (with citation), or manufacturer Thermal Design Power (TDP) specifications with a proportional-utilization formula. Default models SHALL document the model formula and coefficients, component breakdown, validation methodology and uncertainty range, applicable device class, and publication/validity date.
+
+For Advanced tier custom models, organizations SHALL document the evidence basis (hardware power monitors, OS-level profiling tools, or manufacturer specifications), the model formula (e.g., `Energy = CPU_time_ms * CPU_coefficient + GPU_time_ms * GPU_coefficient + base_display_power * duration_s`), numeric coefficients with units, validation data, and quantified uncertainty (§8.4.7).
+
+Regardless of tier: execute the functional unit on a test device (or devices, for Standard/Advanced device-mix); collect CPU/GPU/memory/network/session-duration utilization via the Performance API (Long Tasks, User Timing, Frame Timing, Resource Timing, Performance Memory where available); apply `Energy = Σ(utilization_metric * power_coefficient)`; weight by device-mix for Standard/Advanced tier; report a point estimate with uncertainty range.
+
+**Not acceptable** as a power model: an undocumented conversion factor without a cited source; data-transfer volume (GB) as a sole proxy for device energy without demonstrated per-device-class correlation research; a generic "CPU-millisecond-to-kWh" constant applied across heterogeneous device classes; or a conversion factor applied outside its validated device class (e.g., mobile factors applied to desktop).
+
+**Acceptable simplified approaches**, when documented: average power draw for a device class over session duration (`Energy = average_device_power_W * session_duration_s`, with averaging assumptions disclosed); manufacturer TDP specifications with utilization fractions; or a published research model applied with explicit citation and a stated device-class applicability. The distinction between acceptable and unacceptable simplified approaches is documentation and source traceability, not model complexity.
+
+#### 8.4.4 Display Energy Attribution
+
+Display energy is a significant share of device power during web interaction (typically 30–60% for mobile, 20–40% for laptops at default brightness) and SHALL be included in O\_client.
+
+Organizations SHALL include it via one of:
+
+- **Integrated in the device power model** (any tier): the power model already includes display energy as part of total device power during the session; disclose "display energy included in integrated device power model at default brightness."  
+- **Separate display component** (optional, for higher precision): `Display_Energy = display_power_W * session_duration_s`, with display technology, size, and brightness assumptions disclosed.
+
+Session duration SHALL be defined and disclosed, based on documented evidence rather than arbitrary assumption: for transaction-based functional units, from initiation through completion (including render and decision time); for page-based functional units, median time-on-page from analytics or published research; for session-based functional units, full session duration.
+
+Entry and Standard tiers are NOT required to model pixel-level content effects (e.g., light/dark mode) or dynamic brightness adjustment — device- or technology-average display power at default settings is acceptable with disclosure. Advanced tier MAY include content-dependent modeling where validated research supports it.
+
+#### 8.4.5 Real User Monitoring (RUM)
+
+As of this specification's publication, no standard browser API exposes energy consumption (kWh or watts) to page-level JavaScript. Hardware energy counters (e.g., Intel RAPL, ARM PMU) are not exposed to page contexts for side-channel and fingerprinting-resistance reasons, and the Battery Status API has been deprecated in most browsers on privacy grounds. Partial or experimental signals exist in some environments (OS-level APIs, browser developer tools, specialized hardware); organizations SHOULD monitor the W3C Web Performance Working Group and browser security/privacy working groups for developments.
+
+RUM IS feasible and valuable as a source of *inputs* to power models: resource-utilization timing (navigation, resource, and Long Tasks timing), interaction patterns and session duration, device-class indicators (subject to evolving privacy protections), and page-complexity metrics. The RUM-enhanced pattern (Standard/Advanced tier) is: collect utilization and interaction data from consenting real users; classify sessions by device class; apply device-class power models server-side; aggregate across the device distribution; and use RUM data to validate power-model assumptions (e.g., actual vs. assumed session durations).
+
+Browser developer tools (Firefox Profiler's per-process power on Apple Silicon and Windows 11, Chrome DevTools CPU/GPU profiling, Lighthouse) operate outside the page security sandbox and are appropriate for Entry/Standard tier model creation and validation, but do not constitute production-scale RUM telemetry.
+
+**Terminology**: "RUM" in this specification means collecting utilization data from real user devices — it does NOT mean direct energy measurement on those devices. Energy is always derived server-side by applying a power model to RUM-collected data.
+
+#### 8.4.6 Active vs. Idle Energy Attribution
+
+O\_client SHALL represent the energy attributable to delivering the functional unit, measured relative to a baseline state appropriate to that functional unit's scope: for transaction-based functional units, an empty tab / minimal static page with no JavaScript execution; for page-view functional units, an empty tab, with page-loaded-but-idle time included per the session-duration definition (§8.4.4); for session-based functional units, browser closed or not in use.
+
+**Attributed to the application**: CPU/GPU cycles executing application code; memory allocated to application state; network transfers serving application resources; application-triggered rendering; display energy during the active session; and application-initiated background activity (timers, service workers, background polling).
+
+**Not attributed to the application** (for transaction-based functional units): base browser-process overhead, OS overhead, other tabs or applications, and user activity outside the functional-unit scope.
+
+Where feasible, organizations SHOULD measure differentially: `Application_Energy = Energy_During_Functional_Unit - Baseline_Energy`. Organizations SHALL disclose the functional-unit scope, the baseline-state definition used, treatment of background tasks/timers, and whether browser overhead is included or excluded.
+
+#### 8.4.7 Uncertainty Quantification and Disclosure
+
+All O\_client values are model-derived estimates and carry irreducible uncertainty from device heterogeneity, user-behavior variation, environmental factors, and model simplification. Organizations SHALL report an uncertainty range alongside each O\_client point estimate, determined by: the published uncertainty of a default model (Entry/Standard tier); observed variance from multi-device validation (Advanced tier); sensitivity analysis across plausible parameter ranges; or, absent validation data, a conservative default (suggested ±40% Entry tier, ±30% Standard tier, ±20% Advanced tier with validation).
+
+Example disclosure: "O\_client = 0.042 kWh per \[functional unit\] \[±30%\] (Standard tier, default reference models, device mix from 90-day analytics, uncertainty from reference-model validation)."
+
+Organizations SHALL NOT claim superiority based on point estimates alone when uncertainty ranges overlap; within-organization longitudinal trends under a consistent methodology are more reliable than cross-organization comparison. Reported precision SHOULD be consistent with the uncertainty range (e.g., "0.042 kWh ±30%", not "0.042368 kWh ±30%").
+
+#### 8.4.8 Explicit Non-Requirements
+
+To keep this specification implementable, O\_client measurement explicitly does NOT require: custom power-model creation (Entry/Standard tiers MAY use published default models); physical power-measurement hardware (default models or literature-based approaches are sufficient); device coverage beyond the functional unit's actual scope; pixel-level display modeling; modeling of user behavioral responses (e.g., brightness adjustment); direct energy measurement on user devices (precluded by browser security models); a single mandatory idle-attribution approach (§8.4.6 — baseline depends on functional unit); or sub-component (CPU/GPU/memory/display) breakdown, though it is encouraged where useful for optimization.
 
 **Carbon Intensity (I\_client)**: Organizations SHALL use one of:
 
@@ -512,15 +662,65 @@ Organizations SHALL measure client-side energy using one of the following approa
 
 Third-party operational emissions are not a separate top-level component. Instead, they are attributed within O\_server, O\_network, and O\_client based on where execution occurs (see §6.3.1 for the attribution framework).
 
-Organizations SHALL account for third-party services using one of the following estimation approaches within the appropriate component:
+#### Normative Requirements
 
-**Method A \-- Vendor Disclosure**: Use energy and carbon intensity data published by the vendor. Attribute to the component where execution occurs. Disclose vendor, data source, and date.
+Third-party services integrated into the application boundary (per §6.3) SHALL be attributed using the following methods in order of preference:
 
-**Method B \-- API Call Estimation**: For server-side API-based services, estimate energy as: `E_service = API_calls * E_per_call` where E\_per\_call is either vendor-disclosed or an industry default value. Attribute to O\_server (third-party sub-dimension). Disclose estimation methodology and coefficients.
+**Method A — Vendor Disclosure**: Where the third-party vendor provides energy or carbon data per service unit, that disclosed value SHALL be used. Vendor disclosure SHALL include documented methodology, measurement period, and service unit definition. Attribute to the component where execution occurs.
 
-**Method C \-- Client-Side Script Estimation**: For third-party scripts executing in the browser, estimate based on script execution time (Long Task API), data transferred, and resource consumption. Attribute to O\_client (third-party sub-dimension). Disclose methodology and limitations.
+*Note: Vendor disclosure remains limited primarily to infrastructure providers (cloud platforms). Organizations SHOULD engage vendors to request standardized energy disclosure, but Method A is not currently achievable for most third-party services.*
 
-Organizations SHALL disclose which third-party services are measured, estimated, or excluded, and in which component they are attributed. Services contributing less than 1% of total estimated energy MAY be excluded but SHALL be listed in limitations disclosure.
+**Method B — Service-Class Estimation**: Where vendor disclosure is unavailable, energy SHALL be estimated using activity metrics appropriate to the service's computational characteristics. Estimated energy SHALL be attributed to the component (O\_server or O\_network) where the service executes, as the relevant third-party sub-dimension (see §6.3.1).
+
+Service classification SHALL be based on the nearest-match computational model. Activity coefficients SHALL be derived from published measurement studies, vendor benchmarks, or documented measurement campaigns with cited sources and explicit uncertainty bounds. Non-normative classification guidance is provided in Appendix B.
+
+Activity coefficients SHALL NOT be universal across all service types. Generic "per API call" coefficients are not permitted.
+
+**Method C — Client-Side Measurement**: For third-party services executing in the browser, energy SHALL be attributed via client-side measurement per §8.4 methodology, allocated based on script execution time measured via the Performance API and Page Visibility API, and attributed to O\_client as the third-party sub-dimension (see §6.3.1).
+
+Client-side measurement is MANDATORY for all third-party scripts loaded by the application, regardless of other attribution methods used for server-side components.
+
+**Method D — Exclusion with Mandatory Disclosure**: Where a third-party service cannot be measured via Methods A–C and does not meet mandatory inclusion criteria (see Service Inclusion Requirements below), it MAY be excluded from the boundary.
+
+Exclusions SHALL be disclosed per §12 requirements, including service identification, essentiality classification, reason for exclusion, and aggregate energy total for all excluded services combined.
+
+#### Service Inclusion Requirements
+
+Third-party services SHALL be classified by essentiality:
+
+**Category A (Essential)**: Services without which the declared functional unit cannot be delivered. These are MANDATORY for measurement or disclosure. Examples tied to functional units:
+
+- Payment processing for e-commerce transactions  
+- Authentication services when user accounts are required  
+- Advertising services when the functional unit is ad-funded content delivery
+
+**Category B (Enhancement)**: Services that enhance but are not essential to functional unit delivery (analytics, monitoring, A/B testing). These are subject to materiality thresholds but RECOMMENDED for inclusion where measurable.
+
+**Materiality threshold**: Services contributing less than 1% of total application energy MAY be excluded per vendor entity, subject to the anti-fragmentation protection below.
+
+**Client-side exception**: All third-party scripts executing in the browser SHALL be included in O\_client measurement regardless of essentiality or materiality thresholds.
+
+#### Disclosure Requirements
+
+Organizations SHALL maintain a service inventory disclosing:
+
+- Service name, vendor, and category  
+- Essentiality classification (Category A or B)  
+- Measurement method used (A, B, C, or D)  
+- Energy contribution (if measured) or reason for exclusion  
+- Confirmation of client-side script inclusion
+
+**Anti-fragmentation protection**: The 1% materiality threshold applies per vendor entity, NOT per API endpoint or service subdivision. Organizations SHALL NOT disaggregate service categories across multiple vendors to circumvent the threshold.
+
+Aggregate energy for all sub-threshold excluded services SHALL be calculated and disclosed. If aggregate exclusions exceed 5% of measured energy, the largest excluded services SHALL be itemized until disclosed exclusions fall below 5%.
+
+**Advertising-specific disclosure**: For applications using advertising networks:
+
+- Client-side ad execution (scripts, rendering, asset delivery) SHALL be included via Method C  
+- Upstream real-time-bidding (RTB) auction infrastructure (exchanges, DSPs, SSPs, server-to-server bidding) MAY be excluded, per the supplier-internal-implementation exclusion in §6.3  
+- Disclosure SHALL state integration model, network providers, and confirm client-side inclusion with explicit acknowledgment that upstream auction energy is excluded
+
+*Rationale for upstream exclusion: RTB auctions serve multiple publishers simultaneously with no deterministic per-impression allocation methodology, and auction infrastructure is controlled by third parties outside the application owner's boundary.*
 
 ### 8.6 Server-Side Embodied Emissions (M\_server)
 
@@ -552,20 +752,106 @@ Where for each device type (desktop, laptop, tablet, smartphone):
 
 **Time-share**: For a user session of duration D (hours) with device expected lifespan EL\_device (hours): `TS_device_type = D / EL_device`
 
-**Resource-share**: Estimated as average CPU utilization during web application usage relative to total device active time.
+#### Measurement Scope
 
-**Device type distribution**: Organizations SHALL determine device mix using actual analytics data showing device type distribution, or industry default distribution with disclosure.
+SCI measurements for client devices are inherently device-specific. Each device category (desktop, laptop, tablet, smartphone) constitutes a separate SCI calculation.
 
-**Default embodied emissions values** (organizations MAY use more specific data if available):
+Organizations MAY aggregate device-specific SCI scores into a single weighted metric using actual traffic distribution data (see Optional Device Mix Aggregation below). However, device-specific scores remain the primary normative measurements and SHALL be disclosed individually.
 
-| Device Type | Embodied Emissions | Expected Lifespan |
-| :---- | :---- | :---- |
-| Desktop computer | 400 kg CO2eq | 5 years |
-| Laptop computer | 300 kg CO2eq | 4 years |
-| Tablet | 100 kg CO2eq | 4 years |
-| Smartphone | 80 kg CO2eq | 3 years |
+#### Device Mix: Analytics-Derived Distribution Required
 
-Organizations using defaults SHALL disclose this choice. Organizations with access to device-specific lifecycle analysis data SHOULD use those values.
+**Normative requirement**: Where device mix aggregation is performed, device distribution SHALL be derived from the application's actual analytics data representing real user traffic.
+
+**Data requirements**:
+
+- **Source**: Application analytics showing device category distribution  
+- **Measurement period**: Minimum one calendar year where feasible; if shorter, seasonal skew risk SHALL be disclosed per §14.2  
+- **Weighting basis**: Weighted by functional unit completion (completed transactions, successful actions) rather than raw page views  
+- **Documentation**: SHALL disclose measurement period, analytics source, weighting methodology, and seasonal coverage
+
+**Prohibition of generic defaults**: Generic device mix defaults (global averages, industry benchmarks) SHALL NOT be used. Applications without analytics data SHALL report device-specific SCI scores separately rather than using assumed distribution.
+
+*Rationale: Device mix varies dramatically by application type (enterprise SaaS over 70% desktop; consumer mobile apps over 90% smartphone; e-commerce varies by market). Generic defaults create measurement distortion exceeding acceptable uncertainty bounds.*
+
+#### Optional Device Mix Aggregation
+
+When analytics-derived distribution is available, organizations MAY calculate an aggregated SCI score:
+
+`SCI_aggregated = (SCI_desktop * %_desktop) + (SCI_laptop * %_laptop) + (SCI_tablet * %_tablet) + (SCI_smartphone * %_smartphone)`
+
+This aggregated score is supplementary. Device-specific scores remain normative and SHALL be disclosed.
+
+#### Embodied Emissions Values
+
+**Source hierarchy**: Organizations SHALL determine embodied emissions using:
+
+1. **Product-specific LCA data**: Manufacturer-published Product Carbon Footprint validated to ISO 14067 or equivalent  
+2. **Peer-reviewed device-category values**: Academic LCA studies with documented methodology  
+3. **Validated LCA databases**: Open databases with disclosed methodology (Boavizta, ADEME Base Empreinte)  
+4. **Entry-tier conservative defaults**: Peer-reviewed reference values (see below)
+
+**Entry Tier Conservative Defaults**: Organizations without access to product-specific or database values MAY use the following conservative defaults, derived from Lövehagen et al. (2023) empirical LCA measurements (embodied component only, excluding operational use phase):
+
+| Device Category | Embodied Emissions (kg CO2eq) | Expected Lifespan (years) | Source |
+| :---- | :---- | :---- | :---- |
+| Desktop | 350 | 4 | Lövehagen et al. 2023, Table 14 |
+| Laptop | 200 | 4 | Lövehagen et al. 2023, Table 14 |
+| Tablet | 100 | 3 | Lövehagen et al. 2023, Table 14 |
+| Smartphone | 50 | 3 | Lövehagen et al. 2023, Table 14 |
+
+**Source citation**: Lövehagen, Nina, et al. "Assessing embodied carbon emissions of communication user devices by combining approaches." *Renewable and Sustainable Energy Reviews* 183 (2023): 113422. DOI: 10.1016/j.rser.2023.113422
+
+**Alternative validated source (equally acceptable)**: Organizations MAY alternatively use ADEME Base Empreinte values (French LCA database, reference 1189, publicly accessible) or Boavizta dataset values (github.com/Boavizta/boavizta-data) with the following adjustments:
+
+**If using Boavizta dataset**:
+
+- Use 75th percentile (p75) embodied values to maintain conservative defaults  
+- Calculation: `gwp_total * (1 - gwp_use_ratio)` from source data  
+- Values as of main branch 2025-07-07: Desktop 389, Laptop 285, Tablet 93, Smartphone 67 kg CO2eq  
+- Acknowledge source limitations per Boavizta documentation (manufacturer-declared data with heterogeneous methodologies)  
+- Dataset version SHALL be cited (commit hash or retrieval date)
+
+*Note: Boavizta's own documentation states raw manufacturer data "are not transparent and very often have very large margins of error" and recommends against use for precise measurement. Where precision is required, prefer peer-reviewed sources (Lövehagen et al., ADEME).*
+
+**External monitors (desktop configurations)**: Desktop configurations with external displays: add 100 kg CO2eq for a representative 24" commercial display (derived from Boavizta display category median).
+
+**Excluded peripherals**: Keyboards, mice, chargers, docking stations, external storage, printers, webcams, headphones, and similar peripherals SHALL be excluded from M\_client unless specifically measured and disclosed.
+
+*Rationale: Peripherals lack consistent LCA data, clear attribution to specific applications, and represent immaterial contributions relative to core device embodied emissions.*
+
+**Mandatory disclosure**: Organizations SHALL disclose:
+
+- Source tier used (product-specific, peer-reviewed, database, or Entry defaults)  
+- Specific values in kg CO2eq and assumed lifespans  
+- Source citation with publication year or dataset version  
+- Device configuration (e.g., "desktop with external monitor" or "laptop integrated display")
+
+#### Resource-Share Allocation
+
+**Normative requirement (all tiers)**: RS = 1 (full device allocation) during foreground application execution time, bounded by the Page Visibility API (`visibilityState === "visible"`).
+
+**Rationale for full-device baseline**:
+
+1. Internal consistency with O\_client operational measurement (§8.4), which uses full-device power without component decomposition  
+2. Infeasibility of decomposing embodied share across CPU, GPU, memory, display from the browser sandbox  
+3. Prevention of gaming through GPU-intensive workloads (video, WebGL, ML inference) showing low CPU utilization  
+4. Temporal disjointness: foreground apps across different applications are disjoint in time, so RS = 1 per app during its window never causes double-counting over device lifetime  
+5. Conservative but measurement-complete approach
+
+**Optional refinement (native applications only)**: Organizations with OS-level telemetry access (native apps, managed device fleets) MAY allocate RS based on proportional resource consumption:
+
+`RS = (CPU_util * w_cpu) + (GPU_util * w_gpu) + (Memory_util * w_mem) + (Display_time * w_display)`
+
+Where component weights reflect per-component embodied cost proportions from device-specific LCA data.
+
+**Requirements for proportional RS**:
+
+- Component utilization MUST be measured via OS-level APIs (not estimated)  
+- Component weights MUST derive from device-specific LCA showing per-component embodied emissions  
+- GPU utilization MUST be included (RS based on CPU alone is prohibited due to gaming potential)  
+- Methodology MUST be disclosed
+
+**Browser-based applications**: For browser-based web applications without OS-level access, RS = 1 is the normative method. Proportional refinement requires native application context.
 
 ### 8.8 Network Infrastructure Embodied Emissions (M\_network)
 
@@ -589,7 +875,7 @@ Valid allocation bases follow the parent SCI embodied pattern `M = TE * TS * RS`
 
 ## 9\. Implementation Tiers
 
-Organizations SHALL select one of three implementation tiers based on measurement sophistication and data availability. All tiers are legitimate when methodology is transparently disclosed.
+Organizations SHALL implement one of three measurement tiers for each measured component, based on data availability and measurement sophistication for that component. Tiers apply independently at the component level — a single system MAY achieve different tiers for different components (e.g., Tier 3 for CPU energy, Tier 1 for network energy), reflecting realistic measurement heterogeneity across a deployed system. Organizations SHALL report the tier achieved for each component separately in their measurement profile disclosure (see §12.1). All tiers are legitimate when methodology is transparently disclosed.
 
 ### 9.1 Entry Tier
 
@@ -605,11 +891,13 @@ Organizations SHALL select one of three implementation tiers based on measuremen
 - Measurement period minimum 7 consecutive days of representative traffic  
 - Full disclosure of methodology, tools, and limitations
 
+**Implementation support**: Plain-language implementation guides translating Entry Tier requirements into actionable steps for non-specialist personas (product managers, sustainability coordinators, engineering leadership) SHALL accompany this specification as non-normative supporting materials. Reference implementations demonstrating automated measurement profile collection from common platforms (AWS CloudWatch, Azure Monitor, GCP Operations Suite, CDN analytics APIs, browser Resource Timing API) are maintained in Appendix E.
+
 **Acceptable data sources**:
 
 - Cloud provider energy/carbon APIs  
 - Browser developer tools for client-side profiling  
-- Sustainable Web Design Model for network energy  
+- Time-based network power models using transfer duration and segment power coefficients (see §8.3); Sustainable Web Design Model as disclosed fallback only when time-based calculation is structurally impossible (see §8.3 Fallback requirements)  
 - Default embodied emissions values from this specification  
 - Industry default third-party service coefficients
 
@@ -659,7 +947,7 @@ Organizations SHALL disclose for each component whether measurement or calculati
 | Component | Entry Tier | Standard Tier | Advanced Tier |
 | :---- | :---- | :---- | :---- |
 | O\_server | Measurement or calculation | Measurement preferred | Continuous measurement |
-| O\_network (optional) | Not reported, or data-transfer fallback with disclosure | Hybrid or direct measurement where available; data-transfer fallback only if no alternative | Direct measurement or hybrid model; data-transfer fallback strongly discouraged |
+| O\_network (optional) | Not reported, or time-based duration model (Tier 1); bytes-transfer fallback only if time-based calculation structurally impossible, with disclosure | Hybrid or direct measurement where available; data-transfer fallback only if no alternative | Direct measurement or hybrid model; data-transfer fallback strongly discouraged |
 | O\_client | Measurement (reference devices) | Measurement (device mix) | Measurement (RUM) |
 | M\_server | Calculation (defaults or LCA) | Calculation (LCA databases) | Calculation (specific LCA) |
 | M\_network | Unpopulated with disclosure | Calculation (industry defaults) | Calculation (vendor-specific) |
@@ -667,6 +955,31 @@ Organizations SHALL disclose for each component whether measurement or calculati
 | O\_dev (optional) | Calculation if included | Measurement if included | Measurement if included |
 
 Note: Third-party operational emissions are reported as sub-dimensions within O\_server, O\_network, and O\_client (see §6.3.1), not as a separate component row.
+
+### 9.5 Tier Derivation and Validation
+
+**Tiers are derived, not declared.** An organization does not assert which tier a component occupies. Instead, each component's tier is computed automatically from the properties of the measurement actually recorded for it in the structured disclosure (§12.1): the measurement method used, the data source type, and the uncertainty range reported.
+
+The canonical disclosure schema (§12.1) defines, per component type, which combinations of `method`, `primary_data_source` type, and `uncertainty_range` map to which tier. For example: a component measured via `vendor_disclosed` data with a narrow uncertainty range maps to Standard; one measured via `calculation` against default industry coefficients maps to Entry; direct instrumentation with validated uncertainty maps to Advanced. The mapping table is part of the normative schema, not left to prose interpretation.
+
+**Why derive instead of declare:** A declared tier requires every implementer to interpret ambiguous per-tier guidance consistently — in practice this produces disputes over whether a given tool or data source "counts" as Tier 1 vs Tier 2. Deriving the tier mechanically from the measurement properties already being disclosed removes this interpretive step entirely: either the recorded method, source, and uncertainty satisfy a tier's mapping rule, or they do not. There is no separate self-classification to validate, dispute, or audit.
+
+**Component independence is preserved.** Tier is computed per component, not at the organization level. A system with `vendor_disclosed` O\_server data and `calculation`-based O\_network data is described as Standard for one component and Entry for the other, each derived independently.
+
+**Validator responsibility.** The reference schema validator (§12.1.1) computes and reports the derived tier per component as part of validation output. Organizations never populate a `tier` field themselves for measured components; the field is validator-computed from the other required fields and is present in the disclosure purely as a human-readable summary of what the validator derived.
+
+**Progression incentives.** Organizations are encouraged but not required to progress to measurement approaches that derive a higher tier. Progression is incentivized through:
+
+1. **Transparency signaling:** Higher-tier disclosures demonstrate measurement maturity
+2. **Uncertainty reduction:** Standard and Advanced tiers report narrower uncertainty ranges, improving decision-making confidence
+3. **Comparability improvement:** Organizations at equivalent tiers for equivalent components produce more directly comparable scores
+4. **Ecosystem pressure:** As tooling matures and default models improve, Entry tier becomes easier and Standard tier more accessible, creating natural progression pressure without mandates
+
+**No mandatory timeline for tier advancement:** Organizations SHALL NOT be required to progress to higher tiers by a specified date. Tier choice reflects current capability and organizational priorities. An organization that implements Entry tier and maintains consistent methodology to demonstrate longitudinal improvement is compliant indefinitely.
+
+**Recertification is not required:** Unlike badge or certification systems, SCI for Web scores do not expire. Organizations SHOULD update scores when methodology improves, infrastructure changes significantly, or annually (whichever comes first), but there is no mandatory recertification cycle.
+
+**Context-specific tier requirements:** This specification does NOT mandate minimum tiers for specific organizational contexts (large enterprises, public sector, sustainability claims). All organizations are held to the same disclosure requirements; tier choice reflects capability and resource availability, not organizational size or sector.
 
 ## 10\. Procedure
 
@@ -683,6 +996,18 @@ The steps required to calculate and report an SCI for Web score extend the paren
 5. **Quantify**: Calculate a rate for every software component. The SCI for Web value of the whole application is the sum of the component values.  
      
 6. **Report**: Disclose the SCI for Web score, implementation tier, software boundary, functional unit, calculation methodology, data sources, and limitations following the disclosure requirements (see Section 12).
+
+### 10\.1 Minimum Viable Compliance Pathway
+
+To maximize accessibility while maintaining credibility, **minimum viable compliance** is achieved by completing all of the following:
+
+1. **O\_server**: Tier 1 measurement of at least the CPU energy component, using documented peer-reviewed coefficients (e.g., Boavizta, Cloud Carbon Footprint methodology)
+2. **O\_network**: Tier 1 time-based model — either direct duration tracking or estimated duration (bytes ÷ representative link capacity) multiplied by segment power coefficients (see §8.3). Where time-based calculation is structurally impossible, bytes-transferred proxy is accepted as disclosed fallback flagged "byte-transfer proxy (secondary method)" in the core measurement profile.
+3. **M** (embodied emissions): Tier 1 database values (Boavizta, Cloud Carbon Footprint, or equivalent peer-reviewed source) with vCPU-hour allocation for M\_server, and defaults from §8.7–§8.8 for M\_client and M\_network
+4. **Core measurement profile**: Complete disclosure per §12.1 items 1–4 (tier level by component, primary data source per component, measurement period, known structural limitations)
+5. **Functional unit definition**: Clear specification of R with justification (see §7)
+
+Organizations meeting these five requirements are considered compliant at Entry Tier and SHOULD progress toward Standard and Advanced Tier measurement over time, maintaining historical methodology documentation to preserve valid trend analysis.
 
 ## 11\. Implementation Examples
 
@@ -759,7 +1084,7 @@ For the e-commerce example above, the following should be reported:
 - **Functional Unit**: Completed transaction (checkout flow resulting in order confirmation)  
 - **Measurement Period**: 2026-01-01 to 2026-01-31 (31 days), average 16,100 transactions/day  
 - **Component Breakdown**: O\_server 60% (including 2.6% third-party), O\_client 25% (including 3.4% third-party), M\_server 9%, M\_client 4%, M\_network 1%  
-- **Quantification Methods**: O\_server measured via AWS Carbon Footprint Tool (Stripe API estimated via Method B, attributed as O\_server third-party sub-dimension); O\_client measured on 6 reference devices weighted by analytics device mix (Google Analytics script execution estimated via Method C, attributed as O\_client third-party sub-dimension); M\_network calculated using Boavizta network hardware defaults proportional to data volume  
+- **Quantification Methods**: O\_server measured via AWS Carbon Footprint Tool (Stripe API estimated via Method B, attributed as O\_server third-party sub-dimension); O\_client measured on 6 reference devices weighted by analytics device mix (Google Analytics script execution estimated via Method C, attributed as O\_client third-party sub-dimension); M\_network calculated using Boavizta network hardware defaults with active user-session allocation (see §8.8)  
 - **Carbon Intensity**: ElectricityMaps daily average for eu-west-1; global average for client-side  
 - **Limitations**: O\_network not reported (see above); third-party analytics client-side energy partially estimated; mobile device measurements limited to 2 models
 
@@ -767,10 +1092,31 @@ For the e-commerce example above, the following should be reported:
 
 ### 12.1 Mandatory Disclosures
 
-Organizations reporting SCI for Web scores SHALL disclose:
+Organizations reporting SCI for Web scores SHALL disclose at minimum the following **Core Measurement Profile** items (items 1–4), plus the extended mandatory disclosures (items 5–12). The Core Profile ensures baseline interpretability; items 5–12 provide the methodological detail required for independent validation.
+
+**Disclosure Format Requirements:**
+
+Disclosures SHALL be provided in **structured, machine-readable format** using one of the following:
+
+- JSON (recommended for automated processing and validation)
+- YAML (recommended for human readability and documentation)
+- TOML (acceptable alternative)
+
+A **canonical JSON Schema** defining required fields, permitted values, and validation rules is maintained at [URL to be determined by GSF]. Organizations SHOULD validate their disclosures against this schema before publication.
+
+Human-readable documentation (PDF, HTML, Markdown) MAY accompany structured disclosures but SHALL NOT substitute for them. The structured disclosure is the authoritative source for validation and comparison purposes.
+
+Organizations MAY publish disclosures via:
+
+- Dedicated disclosure endpoint (e.g., `/.well-known/sci-web.json` following carbon.txt conventions)
+- Sustainability reporting portal
+- Version-controlled public repository
+- Third-party disclosure registry
+
+Disclosures SHALL include a `schema_version` field referencing the specific JSON Schema version used for validation.
 
 1. **SCI for Web Score**: The calculated value with units (gCO2eq per \[functional unit\])  
-2. **Implementation Tier**: Entry, Standard, or Advanced  
+2. **Implementation Tier**: Tier level reported **per component** (e.g., "O\_server CPU: Tier 2; O\_network: Tier 1; M\_server: Tier 1"). An overall organization-level tier description is optional supplementary context.  
 3. **Software Boundary**: Complete description of included and excluded components  
 4. **O\_network Inclusion**: Whether O\_network was included in the reported score. If included, the methodology used (direct measurement, hybrid, or data-transfer fallback) and known limitations. If excluded, this SHALL be stated explicitly.  
 5. **Functional Unit**: Definition of R with justification for selection  
@@ -783,9 +1129,51 @@ Organizations reporting SCI for Web scores SHALL disclose:
    - Estimation methodologies where measurement unavailable  
 8. **First-party / Third-party Breakdown**: For each operational component where reported, the first-party / third-party sub-dimension split (see §6.3.1)  
 9. **Carbon Intensity Data**: Sources, temporal granularity, geographic coverage  
-10. **Limitations and Uncertainties**: Components with limited accuracy, excluded third-party services, estimation uncertainties, known gaps  
+10. **Limitations and Uncertainties**: Components with limited accuracy, excluded third-party services, estimation uncertainties, known gaps, and **structural limitations** (e.g., serverless architecture preventing hardware telemetry, provider PUE undisclosed, vendor carbon tool used for account-level validation only)  
 11. **Calculation Date**: When the SCI for Web score was calculated  
 12. **Specification Version**: Version of SCI for Web specification used
+
+### 12.1.1 Structured Disclosure Schema Requirements
+
+The canonical disclosure schema (JSON Schema format) defines the following minimum required properties for Entry tier compliance:
+
+**Document metadata:**
+
+- `schema_version`: Version identifier of the disclosure schema used
+- `spec_version`: Version of SCI for Web specification applied
+- `calculation_date`: ISO 8601 timestamp
+- `organization`: Legal entity name or identifier
+- `application`: Application name or identifier
+
+**Score and boundary:**
+
+- `sci_score`: Numeric value with units
+- `functional_unit`: String describing R with justification field
+- `software_boundary`: Object with `included` and `excluded` arrays
+- `measurement_period`: Object with `start_date`, `end_date`, `duration_days`
+
+**Component-level disclosure** (required for each measured component):
+
+- `component`: Enum [`O_server`, `O_network`, `O_client`, `M_server`, `M_network`, `M_client`, `O_dev`]
+- `tier`: Enum [`1-entry`, `2-standard`, `3-advanced`, `unpopulated`]
+- `method`: Enum [`measurement`, `calculation`, `hybrid`, `vendor_disclosed`]
+- `primary_data_source`: String with tool/database/API name
+- `uncertainty_range`: Object with `lower_bound` and `upper_bound` (percentage)
+- `first_party_third_party_split`: Object (for operational components only)
+
+**O\_network inclusion status:**
+
+- `o_network_included`: Boolean
+- `o_network_methodology`: Enum [`direct_measurement`, `time_based`, `hybrid`, `data_transfer_fallback`, `excluded`] (required if `o_network_included: true`)
+
+**Known limitations:**
+
+- `structural_limitations`: Array of strings describing measurement constraints
+- `excluded_third_party_services`: Array of objects with service name and exclusion rationale
+
+Standard and Advanced tier schemas add additional required fields (carbon intensity temporal granularity, device-mix weighting parameters, validation methodology, etc.) but Entry tier compliance requires only the above.
+
+Organizations claiming tier compliance SHALL demonstrate that their structured disclosure validates against the tier-appropriate schema without errors.
 
 ### 12.2 Recommended Disclosures
 
@@ -797,9 +1185,99 @@ Organizations reporting SCI for Web scores SHALL disclose:
 6. **Geographic Distribution**: Server regions and user geographic distribution  
 7. **Temporal Patterns**: Carbon intensity variation during measurement period
 
-### 12.3 Disclosure Format
+### 12.3 Disclosure Format and Versioning
 
-Organizations SHOULD provide disclosures in structured, machine-readable format (JSON, YAML) in addition to human-readable documentation.
+Organizations SHOULD provide disclosures in structured, machine-readable format (JSON, YAML, TOML) in addition to human-readable documentation. The structured disclosure is the authoritative source for validation and comparison.
+
+**Versioning and archival:**
+
+Disclosures SHALL be versioned and archived. Previous versions SHALL remain accessible rather than being overwritten. Each disclosure SHALL include:
+
+- `disclosure_date`: When this specific disclosure was published
+- `replaces`: Reference to previous disclosure version (if applicable)
+- `valid_from` / `valid_until`: Time period this disclosure represents (optional but recommended)
+
+**Suggested versioning scheme:** Organizations MAY use semantic versioning (e.g., `2026-Q1-v1.2`), date-based identifiers (e.g., `20260131`), or any scheme that provides unambiguous chronological ordering. The schema `disclosure_date` field is the canonical timestamp.
+
+**Retention and auditability:**
+
+Historical disclosures provide auditable history of:
+
+- How scores evolved as methodology matured
+- Impact of infrastructure or application changes
+- Specification version transitions
+- Carbon intensity shifts over time
+
+Organizations making public sustainability claims SHOULD retain historical disclosures for at least:
+
+- Duration of any active claims referencing the score (minimum)
+- 5 years (recommended for audit trail purposes)
+
+**Handling specification updates:**
+
+When a new version of SCI for Web specification is published, organizations:
+
+- MAY continue reporting under the previous specification version (disclose `spec_version`)
+- SHOULD transition to the new version within a reasonable timeframe (suggested 12-18 months for minor updates, 24 months for major updates)
+- SHALL NOT retroactively recalculate historical scores under new methodology (this breaks trend validity)
+- MAY publish comparative scores under both old and new methodology during transition periods, clearly labeled
+
+Current and historical disclosures SHOULD clearly state which specification version was used, preserving comparability context as the spec evolves.
+
+### 12.4 Tooling Ecosystem and Discoverability
+
+**Reference implementations:** Non-normative reference implementations demonstrating disclosure template generation from common data sources (cloud provider APIs, browser Performance API, RUM platforms) are maintained at [URL to be determined by GSF] and SHALL be updated alongside schema revisions.
+
+**Tool neutrality:** This specification does not prescribe specific measurement tools for specific tiers. Organizations SHALL disclose tools used but MAY select any tool that satisfies the tier methodology requirements and produces validatable structured disclosures.
+
+**Known mature tools** (as of specification publication, non-exhaustive):
+
+- **Entry tier server-side measurement:** Cloud provider carbon APIs (AWS Customer Carbon Footprint Tool, Google Cloud Carbon Footprint, Azure Emissions Impact Dashboard), Boavizta API, Cloud Carbon Footprint open-source project
+- **Entry tier client-side measurement:** Firefox Profiler (macOS, Windows 11), co2-runner (demonstration project), Green Metrics Tool (open source, end-to-end measurement for open source projects)
+- **Entry tier network measurement:** co2.js (JavaScript library with SWD Model and time-based options)
+- **Standard tier device-mix measurement:** RUM platforms with device classification (though energy calculation remains model-based per §8.4)
+
+Organizations SHOULD monitor the W3C Web Performance Working Group, Green Software Foundation tooling updates, and browser vendor sustainability initiatives for emerging measurement capabilities.
+
+**Gap identification:** As implementation experience grows, persistent tooling gaps SHALL be documented in the specification maintenance log. Priority gaps for future development include:
+
+- Production-ready time-based network energy measurement tools
+- Standardized RUM integration patterns for client-side energy attribution
+- Vendor-disclosed network segment energy data (ISP, CDN, cellular operator partnerships)
+
+**Discovery and registry:**
+
+Organizations publishing SCI for Web scores MAY make them discoverable via:
+
+1. **Endpoint convention** (recommended): Publish structured disclosure at `/.well-known/sci-web.json` or `/.well-known/sci-web.yaml` following existing `.well-known` URI conventions. This enables automated discovery and validation without requiring centralized registration.
+2. **carbon.txt integration**: Organizations already using carbon.txt (Green Web Foundation convention) SHOULD include an `sci-web-disclosure` field pointing to the structured disclosure location.
+3. **Third-party registry submission** (optional): Submit disclosure to an independently operated public registry. Registry submission is OPTIONAL and SHALL NOT be required for specification compliance.
+
+**Registry governance (if established):**
+
+Any public registry of SCI for Web scores SHALL:
+
+- Operate independently of the specification maintainers to avoid conflicts of interest
+- Accept submissions in standard schema format without modification
+- Retain historical versions with timestamps (not overwrite previous disclosures)
+- Provide clear governance and submission rules
+- Be funded and operated transparently
+- Not gatekeep access to disclosure or comparison functionality behind paywalls
+
+This specification does not establish or endorse a specific registry. Registry establishment is a separate governance question outside the scope of this assembly.
+
+**Badges and labels:**
+
+This specification does **NOT** define a standardized badge, label, or certification mark. Visual badges present governance, spoofing, and validation challenges. The structured disclosure itself, retrievable via discovery mechanisms above, is the authoritative source for verification.
+
+Organizations MAY create their own visual representations of SCI for Web scores for marketing or transparency purposes, but SHALL ensure any such representation:
+
+- Links directly to the authoritative structured disclosure
+- Includes a timestamp or version indicator
+- Does not imply third-party endorsement unless such endorsement exists
+- Clearly states the tier level per component
+
+The absence of a standardized badge is intentional: it shifts focus from certification theater to transparent, machine-verifiable disclosure.
 
 ## 13\. Handling of Edge Cases
 
@@ -828,6 +1306,14 @@ Organizations SHOULD provide disclosures in structured, machine-readable format 
 - Edge function execution at CDN nodes included in O\_server  
 - Allocation methodology for shared infrastructure SHALL be disclosed
 
+For serverless environments where hardware telemetry is architecturally unavailable, organizations SHALL use billing-derived allocation for operational energy estimation:
+
+`E_serverless = memory_GB * duration_seconds * E_coefficient`
+
+Where `E_coefficient` is a peer-reviewed energy coefficient (kWh per GB-second) drawn from documented sources (Boavizta, Cloud Carbon Footprint methodology, or equivalent peer-reviewed literature). Billing-derived `duration_seconds` inherently captures cold start overhead within each invocation window, and no separate cold-start adjustment is required when billing duration is used as the time input. Explicitly reserved capacity (Provisioned Concurrency, reserved instances) SHALL be attributed to the reserving customer rather than distributed across the shared pool.
+
+Organizations using billing-derived allocation SHALL disclose the coefficient source, version, and date. Tier 3 direct hardware telemetry remains architecturally unavailable for serverless paradigms on public cloud; this is a structural limitation of the paradigm and SHALL be documented as such in the core measurement profile — not treated as non-compliance.
+
 ### 13.5 API-First Architectures
 
 - Backend API serving energy in O\_server  
@@ -850,7 +1336,31 @@ Organizations SHALL disclose: average and peak traffic levels, traffic distribut
 
 When comparing SCI scores over time or across implementations, traffic patterns SHALL be normalized to ensure comparable functional unit denominator. Normalization methodology SHALL be disclosed.
 
+### 14.4 Score Comparability Framework
+
+SCI for Web scores are **directly comparable only within equivalent measurement profiles**. Organizations and consumers of SCI data SHALL interpret scores with reference to the following comparability categories:
+
+**Primary use case — Longitudinal improvement tracking**: An organization tracks its own SCI scores over time using consistent methodology to demonstrate emission reduction trajectories. This is the strongest and most reliable application of the framework. Score reductions under consistent methodology constitute meaningful evidence of efficiency improvement.
+
+**Secondary use case — Cohort comparison**: Organizations with equivalent measurement profiles (matching tier levels for all compared components, equivalent deployment paradigm, and equivalent functional unit definition) MAY compare scores to understand relative performance within their cohort. Cohort comparisons SHOULD document that measurement profile equivalence has been verified.
+
+**Contextualized use case — Cross-tier interpretation**: Comparisons between scores from different measurement tiers require explicit disclosure of methodology differences and SHOULD involve expert interpretation of what the tier difference implies for score magnitude. Cross-tier comparisons MUST NOT be used to drive purchasing or policy decisions without appropriate statistical weighting and contextual explanation.
+
+*Rationale*: Component-level tier independence (see §9) means two scores may differ because one organization measures more accurately, not because it has lower emissions. Score comparisons that do not account for measurement profile equivalence may reflect measurement sophistication rather than actual environmental performance.
+
 ## 15\. Carbon Intensity Data Sources
+
+#### Carbon Intensity Methodology
+
+Carbon intensity values used in SCI calculations SHALL be location-based average grid carbon intensity, consistent with ISO/IEC 21031:2024 requirements.
+
+**Normative requirement**: Reported carbon intensity MUST be labeled as "average carbon intensity" in all disclosures and documentation.
+
+**Optional supplementary reporting**: Organizations MAY additionally report marginal carbon intensity as a secondary figure for informational purposes, clearly labeled as supplementary and distinct from the normative SCI calculation.
+
+*Rationale: Average carbon intensity is required for carbon accounting consistency per GHG Protocol and ISO 14067. Marginal intensity, while useful for operational decision-making, is not suitable for inventory-based carbon accounting and SHALL NOT be used as the primary SCI intensity value.*
+
+**Market-based measures**: Market-based carbon accounting (offsets, RECs, PPAs, EACs) SHALL NOT reduce SCI scores, per ISO/IEC 21031:2024 §6.3 and §18.1 of this specification. SCI reflects actual emissions from energy consumption, not contractual instruments.
 
 Organizations SHALL use location-based grid carbon intensity data. Recommended sources:
 
@@ -866,18 +1376,110 @@ Organizations SHALL use location-based grid carbon intensity data. Recommended s
 - Standard tier: Daily average minimum  
 - Advanced tier: Hourly recommended
 
+**Fallback hierarchy for carbon intensity data** (applied only when the primary source for a given segment is structurally unavailable):
+
+1. **Country-level location-based grid data** (minimum requirement): Available from Ember Climate, Electricity Maps API, co2.js, IEA, or national grid operators. This is the baseline; all implementations MUST achieve at minimum country-level attribution per segment.
+2. **Regional granularity within countries** (encouraged where available): US eGRID subregions, European bidding zones, national transmission operator zones. Provider-disclosed datacenter-specific intensity is acceptable at Standard Tier and above when calculation methodology is documented.
+3. If country-level data is unavailable for a specific segment: **regional grid mix** (e.g., European grid average when individual country is unidentifiable)
+4. If regional data is unavailable: **continental 75th-percentile** (conservative, to discourage gaming through strategic geographic ambiguity)
+5. If continental data is unavailable: **global average**, used ONLY with an explicit flag in the core measurement profile
+
+*Rationale for 75th-percentile at steps 4–5*: Using a conservative (high) fallback value rather than the mean prevents gaming through deliberate failure to disclose server location or connection geography, while avoiding excessive punishment of operators who genuinely lack the data. Organizations with evidence that their grid mix is cleaner than the fallback default SHOULD document that evidence and use the more accurate value.
+
 ## 16\. Reference Devices
 
-To enable comparable client-side measurements, organizations SHOULD select devices representing their actual user base from the following categories:
+To enable comparable client-side measurements (§8.4), device classes are defined by:
 
-| Category | High-End | Mid-Range | Low-End |
-| :---- | :---- | :---- | :---- |
-| Desktop | Modern workstation (6+ core, dedicated GPU) | Standard desktop (4 core, integrated graphics) | Budget desktop (2 core, integrated graphics) |
-| Laptop | Performance laptop (MacBook Pro 16" class) | Standard laptop (MacBook Air class) | Budget laptop (Chromebook class) |
-| Smartphone | Current generation flagship | Mid-tier smartphone | Budget or older generation |
-| Tablet | iPad Pro class | iPad Air class | Entry-level tablet |
+1. **Form factor**: mobile phone, tablet, laptop, desktop, television, embedded device  
+2. **Processor architecture family**: x86-64, ARM Cortex-A, ARM Cortex-X, Apple Silicon (M-series), AMD Ryzen generation, Intel Core generation  
+3. **Performance tier**: entry (budget), mainstream, high-performance  
+4. **Release generation**: 2–3 year groupings aligned with chip generation
+
+**Default reference device list**: This specification references a default list of reference devices maintained by the Green Software Foundation (or a successor organization designated by the SCI for Web maintainers). The list SHALL:
+
+- Provide at least one reference device per major device class  
+- Represent device classes accounting for at least 5% of global web traffic, based on industry analytics  
+- Include a documented power model per reference device, with validation methodology and uncertainty range (§8.4.3, §8.4.7)  
+- Be reviewed and updated on a 2–3 year cycle aligned with device upgrade cycles  
+- Be publicly accessible without licensing restriction
+
+The current default reference device list is published at: \[URL to be determined by GSF\]
+
+**Reference device selection principles**: market representativeness (aggregate data from IDC, Gartner, StatCounter, HTTP Archive, or Chrome UX Report); accessibility for validation purposes; architecture diversity (ARM, x86-64, Apple Silicon); power-range coverage within each form factor (e.g., 2–8W mobile, 15–45W laptop, 65–400W desktop); and stability (minimum 2 years on the list, to enable longitudinal comparison).
+
+**Example default reference devices (non-normative)**:
+
+| Category | Example Device |
+| :---- | :---- |
+| Mobile — Mainstream (2022–2024) | Samsung Galaxy S23 (ARM Snapdragon 8 Gen 2) |
+| Mobile — Entry (2022–2024) | Motorola Moto G Power (ARM Snapdragon 680) |
+| Laptop — Mainstream (2022–2024) | Apple MacBook Air M2 |
+| Laptop — High-Performance (2022–2024) | Dell XPS 15 9530 (Intel Core i7-13700H) |
+| Desktop — Mainstream (2022–2024) | Custom build (AMD Ryzen 7 5700X, mid-range GPU) |
+
+**Custom devices**: Organizations MAY classify and model devices outside the default list when the functional unit targets a context not well-represented by defaults (e.g., embedded systems), organization-specific analytics show significant traffic from an absent device class, or Advanced tier validation justifies it. When used, organizations SHALL document the classification, specify the exact device model, justify why default devices are insufficient, and (Advanced tier) report results against both the custom and nearest default reference model.
+
+Device selection SHALL align with functional-unit scope: organizations are not penalized for testing only the device classes relevant to a well-scoped functional unit (e.g., mobile-only testing for a functional unit with 95%+ mobile traffic).
 
 Organizations SHALL disclose device make, model, OS version, and browser version used for testing.
+
+### 16.1 Data Source Requirements
+
+#### Source Quality Criteria
+
+Where this specification references external data sources for default values or coefficients, organizations MAY substitute alternative sources meeting the following criteria:
+
+**Required characteristics**:
+
+- Publicly accessible or widely available within industry  
+- Documented methodology disclosed  
+- Peer-reviewed publication OR validated by recognized standards body OR open dataset with documented validation process  
+- Updated on a regular cadence (annually or as source data changes)  
+- Appropriate geographic or technical scope for the application context
+
+**Examples of acceptable source types**:
+
+- Peer-reviewed academic publications (e.g., Lövehagen et al. for device embodied emissions)  
+- National/international LCA databases (e.g., ADEME Base Empreinte, Boavizta)  
+- Industry benchmarks from recognized bodies (e.g., Uptime Institute for PUE, Ember for grid intensity)  
+- Government statistical agencies (e.g., national statistics offices for device usage patterns)
+
+**Examples of unacceptable sources**:
+
+- Proprietary vendor data without disclosed methodology  
+- Single-company case studies without peer review  
+- Undocumented assumptions or estimates  
+- Sources without update cadence or version control
+
+**Disclosure requirement**: Organizations substituting alternative sources SHALL disclose: source name and citation, retrieval date or version, rationale for substitution (why the alternative was chosen over the specification-referenced source), and confirmation that quality criteria are met.
+
+#### Named Reference Sources (Informative)
+
+This specification names specific sources (e.g., "StatCounter Global Stats," "Boavizta dataset," "Lövehagen et al. 2023") as reference examples meeting the quality criteria above, not as exclusive mandatory sources.
+
+Named sources represent: commonly available resources accessible to most implementers; validated methodology and regular updates; and sufficient coverage for typical implementation needs.
+
+Organizations MAY use alternative sources meeting quality criteria without seeking approval, provided substitution is disclosed.
+
+### 16.2 Default Value Update Cadence
+
+Default values referenced in this specification SHALL be reviewed according to underlying data volatility:
+
+**Annual review cycle (high volatility)**:
+
+- Carbon intensity regional values (tied to Ember/IEA annual publication cycles)  
+- Device usage pattern data (if generic defaults are referenced in informative guidance)  
+- Service-class activity coefficients (if material changes in service architecture or new measurement studies)
+
+**2–3 year review cycle (moderate volatility)**:
+
+- Embodied emissions values (tied to LCA database major updates or publication of new peer-reviewed studies)  
+- Device lifespan assumptions (reviewed with embodied values)  
+- PUE defaults (tied to Uptime Institute benchmark updates)
+
+**Event-triggered review**: Defaults MAY be updated outside scheduled cadence when: the underlying source publishes corrections or methodology changes; new peer-reviewed research contradicts existing defaults by more than 20%; market shifts render defaults non-representative; or gaming vectors are identified requiring protective adjustments.
+
+**Version control for reproducibility**: Organizations SHALL cite: specification version used, dataset version or publication date for sourced defaults, and retrieval date for web-sourced data. This enables reproducible SCI calculations across specification versions.
 
 ## 17\. Core Characteristics
 
@@ -1067,15 +1669,54 @@ Disclosure statement:
    the provider publishes them."
 ```
 
-### Appendix B: Worked Calculation Examples
+### Appendix B: Service-Class Estimation Guidance (Informative)
+
+This appendix provides implementation guidance for Method B (Service-Class Estimation) per §8.5. Content here is informative, not normative.
+
+#### Service Classification Table
+
+Third-party services SHOULD be classified using the nearest-match computational model:
+
+| Service Class | Representative Activity Metrics | Computational Characteristics |
+| :---- | :---- | :---- |
+| Payment processing | Completed transactions, authorization requests, settlement events | Transaction validation, fraud detection, ledger updates |
+| Authentication | Login events, session creations, token validations, failed attempts, password resets | Cryptographic operations, session management, identity verification |
+| Email delivery | Messages sent, delivery attempts | SMTP processing, queue management, spam filtering |
+| Analytics (server-side) | Events processed, sessions tracked | Data ingestion, aggregation, storage |
+| Ad serving | Impressions served, ad requests | Creative selection, delivery, auction participation (client-side) |
+| AI/ML inference | Inference requests, tokens processed, model invocations | Model execution, GPU computation |
+| Search | Queries executed, results returned | Index operations, ranking computation |
+| Media processing | Assets processed, processing minutes, transcoding jobs | Transcoding, transformation, encoding |
+| Data storage/retrieval | Operations executed, GB transferred, API calls | I/O operations, data movement |
+| Lightweight services | API calls, function invocations | Simple CRUD, event tracking, static delivery |
+
+**Fallback for unclassified services**: Services not fitting predefined categories SHALL be classified to the nearest computational model with documented justification. Organizations SHALL disclose the classification rationale in the service inventory.
+
+**Activity metric breadth**: Activity metrics SHOULD capture total service invocation, including failed or incomplete attempts, not only successful outcomes. For example:
+
+- Payment processing: Include declined transactions, fraud checks, checkout session creation  
+- Authentication: Include failed login attempts, password resets, registration events  
+- Email delivery: Include delivery attempts, not only confirmed deliveries
+
+*Rationale: Computational resources are consumed regardless of outcome success.*
+
+#### Provisional Entry-Tier Coefficients
+
+Entry-tier implementations MAY use service-class coefficients when published measurement studies exist. Organizations using provisional coefficients SHALL disclose: coefficient source and publication date, measurement methodology from the source study, uncertainty bounds, and aggregate uncertainty introduced by estimation across all third-party services.
+
+**Current state**: As of 2026, peer-reviewed energy coefficients exist for limited service classes (cloud compute instances, CDN delivery, some email processing). For most third-party SaaS services, Method A (vendor disclosure) or Method D (exclusion with disclosure) remain the realistic options per §8.5.
+
+*This appendix will be updated as measurement literature matures.*
+
+### Appendix C: Worked Calculation Examples
 
 (To be developed: Step-by-step calculations for each application type with realistic data)
 
-### Appendix C: Reference Values and Coefficients
+### Appendix D: Reference Values and Coefficients
 
 (To be developed: Compiled reference values for embodied emissions, network energy coefficients, PUE defaults, and other constants)
 
-### Appendix D: Tool and Data Source Directory
+### Appendix E: Tool and Data Source Directory
 
 (To be developed: Curated list of measurement tools, instrumentation approaches, and data sources for each component)
 
@@ -1083,6 +1724,11 @@ Disclosure statement:
 
 ## Document History
 
-**Version 0.2.0-draft** (2026-02-18): First draft specification based on REPORT.md design requirements, structured to align with SCI for AI specification format.
-
-**Future versions**: This specification will evolve through expert assembly, community feedback, implementation experience, and alignment with parent SCI specification updates.
+* **Version 0.7.0-draft** (2026-10-21):
+Specification updated based on the outcome of SCI Web II Assembly - Topic 5 -Implementation Tiers, Tooling, and Disclosure  >
+* **Version 0.6.0-draft** (2026-08-14): Specification updated based on the outcome of SCI Web II Assembly - Topic 4 - Third-Party Service Attribution, Client Device Embodied Emissions, Carbon Intensity Methodology, and Specification Structure  >
+* **Version 0.5.0-draft** (2026-07-06): Specification updated based on the outcome of SCI Web II Assembly - Topic 3 - Client-Side Measurement >
+* **Version 0.4.0-draft** (2026-06-29): Specification updated based on the outcome of SCI Web II Assembly - Topic 2 - Server-Side & Network Measurement >
+* **Version 0.3.0-draft** (2026-04-27): Specification updated based on the outcome of SCI Web II Assembly - Topic 1 - Formula and Functional Units >
+* **Version 0.2.0-draft** (2026-02-18): First draft specification based on REPORT.md design requirements, structured to align with SCI for AI specification format.
+* **Future versions**: This specification will evolve through expert assembly, community feedback, implementation experience, and alignment with parent SCI specification updates.
