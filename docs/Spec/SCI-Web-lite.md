@@ -89,6 +89,7 @@ The following abbreviations are used throughout this specification, in addition 
 - `M_server` – Embodied emissions of server-side hardware
 - `M_network` – Embodied emissions of network hardware
 - `M_client` – Embodied emissions of end-user devices
+- `O_dev` - Development lifecycle emissions (optional: see [Optional components](#optional-components))
 - PUE – Power usage effectiveness
 
 ## Procedure
@@ -112,6 +113,9 @@ The calculation shall include the operational emissions of server-side infrastru
 Operational emissions of network transfer may be included, as specified in [Network operational emissions](#network-operational-emissions-o_network).
 
 Monitoring, observability, redundancy, and failover infrastructure shall be included where material. Any exclusion and its rationale shall be disclosed.
+
+Development and build infrastructure may be assessed separately using ISO/IEC 21031:2024. Such a result shall be reported separately as `O_dev`.
+
 
 ### Exclusions from the boundary
 
