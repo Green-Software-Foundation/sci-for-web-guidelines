@@ -26,7 +26,7 @@ Explanation, worked examples, data sources, and implementation guidance are publ
 
 This document specifies a method for calculating and reporting the carbon intensity of web applications. A software system is in scope when all three of the following apply:
 
-1. content and functionality are delivered over HTTP or HTTPS;
+1. content and functionality are delivered primarily over HTTP or HTTPS;
 2. rendering and execution occur primarily in a web browser or equivalent web rendering engine;
 3. the interface is designed for direct human interaction.
 
@@ -89,6 +89,7 @@ The following abbreviations are used throughout this specification, in addition 
 - `M_server` – Embodied emissions of server-side hardware
 - `M_network` – Embodied emissions of network hardware
 - `M_client` – Embodied emissions of end-user devices
+- `O_dev` - Development lifecycle emissions (optional: see [Optional components](#optional-components))
 - PUE – Power usage effectiveness
 
 ## Procedure
@@ -113,15 +114,16 @@ Operational emissions of network transfer may be included, as specified in [Netw
 
 Monitoring, observability, redundancy, and failover infrastructure shall be included where material. Any exclusion and its rationale shall be disclosed.
 
+Development and build infrastructure may be assessed separately using ISO/IEC 21031:2024. Such a result shall be reported separately as `O_dev`.
+
+
 ### Exclusions from the boundary
 
 The following shall be excluded from the SCI for Web score:
 
-- development and build infrastructure, including developer workstations, CI/CD pipelines, build processes, automated testing, and staging environments;
 - processing that occurs after delivery and is not triggered by the user's interaction with the web application;
 - software installed on the end-user device by the user, including browser extensions.
 
-Development and build infrastructure may be assessed separately using ISO/IEC 21031:2024. Such a result shall be reported separately and shall not be added to the SCI for Web score.
 
 ### Third-party services
 
@@ -248,8 +250,6 @@ The core characteristics of ISO/IEC 21031:2024 apply. In addition, as this speci
 ## Exclusions
 
 The exclusion of market-based measures specified in ISO/IEC 21031:2024 applies to every component of an SCI for Web score.
-
-In addition, claims of renewable or "green" hosting based solely on energy attribute purchases shall not reduce an SCI for Web score.
 
 ## Bibliography
 
